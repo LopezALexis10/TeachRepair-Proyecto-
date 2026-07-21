@@ -139,6 +139,30 @@ code {
   gap: 14px;
 }
 
+.password-field {
+  display: grid;
+  gap: 8px;
+  grid-template-columns: minmax(0, 1fr) 42px;
+}
+
+.icon-button {
+  background: #e8eff1;
+  color: #15212d;
+  min-height: 42px;
+  padding: 0;
+}
+
+.icon-button:hover {
+  background: #d9e4e8;
+}
+
+.password-help {
+  color: #61717d;
+  font-size: 0.88rem;
+  line-height: 1.45;
+  margin: -4px 0 0;
+}
+
 label {
   color: #41525e;
   display: grid;

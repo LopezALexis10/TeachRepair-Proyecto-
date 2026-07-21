@@ -12,6 +12,8 @@ import {
   ShieldCheck,
   Smartphone,
   UserPlus,
+  Eye,
+  EyeOff,
   Wrench,
 } from "lucide-react";
 import { StatusBadge } from "./components/StatusBadge";
@@ -69,6 +71,47 @@ function normalizeRepair(repair) {
   };
 }
 
+function getPasswordIssues(password) {
+  const issues = [];
+  if (password.length < 8) issues.push("mínimo 8 caracteres");
+  if (!/[A-Z]/.test(password)) issues.push("una letra mayúscula");
+  if (!/[a-z]/.test(password)) issues.push("una letra minúscula");
+  if (!/[0-9]/.test(password)) issues.push("un número");
+  return issues;
+}
+
+function translateAuthError(error) {
+  const message = error?.message || "";
+  if (message.includes("Password did not conform with policy")) {
+    return "La contraseña no cumple los requisitos. Debe tener mínimo 8 caracteres, una mayúscula, una minúscula y un número.";
+  }
+  if (message.includes("User already exists")) {
+    return "Ya existe una cuenta con este correo. Intenta iniciar sesión.";
+  }
+  if (message.includes("Incorrect username or password")) {
+    return "Correo o contraseña incorrectos.";
+  }
+  if (message.includes("Invalid verification code")) {
+    return "El código de confirmación no es correcto.";
+  }
+  return message || "Ocurrió un error de autenticación.";
+}
+
+function PasswordInput({ label, value, onChange, required = false }) {
+  const [visible, setVisible] = useState(false);
+  return (
+    <label>
+      {label}
+      <div className="password-field">
+        <input type={visible ? "text" : "password"} value={value} onChange={onChange} required={required} />
+        <button type="button" className="icon-button" onClick={() => setVisible((current) => !current)} aria-label={visible ? "Ocultar contraseña" : "Ver contraseña"}>
+          {visible ? <EyeOff size={17} /> : <Eye size={17} />}
+        </button>
+      </div>
+    </label>
+  );
+}
+
 function Logo() {
   return (
     <div className="brand">
@@ -104,7 +147,7 @@ function AuthScreen({ onLogin }) {
       const session = await signIn(email, password);
       onLogin(session);
     } catch (error) {
-      setMessage(error.message);
+      setMessage(translateAuthError(error));
     } finally {
       setLoading(false);
     }
@@ -115,6 +158,11 @@ function AuthScreen({ onLogin }) {
     setMessage("");
     if (password !== confirmPassword) {
       setMessage("Las contraseñas no coinciden.");
+      return;
+    }
+    const passwordIssues = getPasswordIssues(password);
+    if (passwordIssues.length > 0) {
+      setMessage(`A la contraseña le falta: ${passwordIssues.join(", ")}.`);
       return;
     }
     setLoading(true);
@@ -128,7 +176,7 @@ function AuthScreen({ onLogin }) {
       setMode("confirm");
       setMessage("Cuenta creada. Revisa tu correo y escribe el código de confirmación.");
     } catch (error) {
-      setMessage(error.message);
+      setMessage(translateAuthError(error));
     } finally {
       setLoading(false);
     }
@@ -143,7 +191,7 @@ function AuthScreen({ onLogin }) {
       const session = await signIn(email, password);
       onLogin(session);
     } catch (error) {
-      setMessage(error.message);
+      setMessage(translateAuthError(error));
     } finally {
       setLoading(false);
     }
@@ -155,7 +203,7 @@ function AuthScreen({ onLogin }) {
       await resendConfirmationCode(email);
       setMessage("Código reenviado. Revisa el correo del cliente.");
     } catch (error) {
-      setMessage(error.message);
+      setMessage(translateAuthError(error));
     }
   }
 
@@ -182,7 +230,7 @@ function AuthScreen({ onLogin }) {
         {mode === "login" && (
           <form onSubmit={submitLogin}>
             <label>Correo<input value={email} onChange={(event) => setEmail(event.target.value)} /></label>
-            <label>Contraseña<input type="password" value={password} onChange={(event) => setPassword(event.target.value)} /></label>
+            <PasswordInput label="Contraseña" value={password} onChange={(event) => setPassword(event.target.value)} />
             <button disabled={loading}>{loading ? "Entrando..." : "Entrar"}</button>
           </form>
         )}
@@ -191,8 +239,11 @@ function AuthScreen({ onLogin }) {
           <form onSubmit={submitRegister}>
             <label>Nombre completo<input value={name} onChange={(event) => setName(event.target.value)} required /></label>
             <label>Correo<input type="email" value={email} onChange={(event) => setEmail(event.target.value)} required /></label>
-            <label>Contraseña<input type="password" value={password} onChange={(event) => setPassword(event.target.value)} required /></label>
-            <label>Confirmar contraseña<input type="password" value={confirmPassword} onChange={(event) => setConfirmPassword(event.target.value)} required /></label>
+            <PasswordInput label="Contraseña" value={password} onChange={(event) => setPassword(event.target.value)} required />
+            <PasswordInput label="Confirmar contraseña" value={confirmPassword} onChange={(event) => setConfirmPassword(event.target.value)} required />
+            <p className="password-help">
+              La contraseña debe tener mínimo 8 caracteres, una mayúscula, una minúscula y un número.
+            </p>
             <button disabled={loading}><UserPlus size={17} /> Crear cuenta</button>
           </form>
         )}
@@ -210,7 +261,6 @@ function AuthScreen({ onLogin }) {
         <div className="auth-switch">
           {mode !== "login" && <button className="ghost" onClick={() => setMode("login")}>Ya tengo cuenta</button>}
           {mode !== "register" && <button className="ghost" onClick={() => setMode("register")}>Crear cuenta de cliente</button>}
-          {mode !== "confirm" && <button className="ghost" onClick={() => setMode("confirm")}>Confirmar cuenta</button>}
         </div>
       </section>
     </main>
@@ -568,15 +618,23 @@ function Dashboard({ session, onLogout }) {
 
   if (!technician) {
     return (
-      <main className="client-shell">
-        <header className="client-header">
+      <main className="app-shell">
+        <aside className="sidebar">
           <Logo />
+          <nav>
+            <button className="active"><Wrench size={18} /> Mis reparaciones</button>
+          </nav>
+          <button className="ghost" onClick={() => { signOut(); onLogout(); }}><LogOut size={17} /> Salir</button>
+        </aside>
+
+        <section className="main-view">
+        <header className="topbar">
           <div>
             <p>Portal cliente</p>
             <h1>Hola, {session.nombre}</h1>
             <span className="session-chip">{session.email} · CLIENTE</span>
           </div>
-          <button className="ghost" onClick={() => { signOut(); onLogout(); }}><LogOut size={17} /> Salir</button>
+          <button className="secondary" onClick={load}><RefreshCcw size={17} /> Actualizar</button>
         </header>
         {statusMessage && <p className="alert">{statusMessage}</p>}
         <section className="dashboard-grid">
@@ -584,6 +642,7 @@ function Dashboard({ session, onLogout }) {
           <RepairList repairs={repairs} selected={selected} onSelect={setSelected} />
           <RepairDetail detail={detail} technician={false} onChangeStatus={changeStatus} />
           <ChatPanel repair={selected} session={session} />
+        </section>
         </section>
       </main>
     );
