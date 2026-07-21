@@ -1,0 +1,549 @@
+:root {
+  color-scheme: light;
+  font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  background: #f4f7f8;
+  color: #15212d;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  min-height: 100vh;
+}
+
+button,
+input,
+select {
+  font: inherit;
+}
+
+button {
+  align-items: center;
+  background: #0c6b5a;
+  border: 0;
+  border-radius: 7px;
+  color: white;
+  cursor: pointer;
+  display: inline-flex;
+  font-weight: 750;
+  gap: 8px;
+  justify-content: center;
+  min-height: 42px;
+  padding: 0 14px;
+}
+
+button:hover {
+  background: #095648;
+}
+
+input,
+select {
+  background: #fff;
+  border: 1px solid #cfd9df;
+  border-radius: 7px;
+  color: #15212d;
+  min-height: 42px;
+  min-width: 0;
+  padding: 0 12px;
+}
+
+code {
+  background: #edf2f4;
+  border-radius: 4px;
+  padding: 2px 5px;
+}
+
+.login-page {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 420px;
+  min-height: 100vh;
+}
+
+.login-hero {
+  align-content: center;
+  background:
+    linear-gradient(rgba(9, 27, 37, 0.64), rgba(9, 27, 37, 0.72)),
+    url("https://images.unsplash.com/photo-1516321318423-f06f85e504b3?auto=format&fit=crop&w=1400&q=80");
+  background-position: center;
+  background-size: cover;
+  color: white;
+  display: grid;
+  padding: 56px;
+}
+
+.login-hero h1 {
+  font-size: clamp(2.3rem, 6vw, 5rem);
+  line-height: 0.98;
+  margin: 70px 0 20px;
+  max-width: 780px;
+}
+
+.login-hero p {
+  color: #d8e4e5;
+  font-size: 1.12rem;
+  line-height: 1.6;
+  margin: 0;
+  max-width: 640px;
+}
+
+.hero-grid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-top: 28px;
+}
+
+.hero-grid span {
+  align-items: center;
+  backdrop-filter: blur(12px);
+  background: rgba(255, 255, 255, 0.12);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  border-radius: 7px;
+  display: inline-flex;
+  gap: 8px;
+  padding: 10px 12px;
+}
+
+.login-card {
+  align-content: center;
+  background: #fff;
+  display: grid;
+  padding: 42px;
+}
+
+.login-card h2 {
+  font-size: 1.8rem;
+  margin: 0 0 8px;
+}
+
+.login-card p {
+  color: #61717d;
+  line-height: 1.45;
+  margin: 0 0 22px;
+}
+
+.login-card form,
+.repair-form {
+  display: grid;
+  gap: 14px;
+}
+
+label {
+  color: #41525e;
+  display: grid;
+  font-size: 0.9rem;
+  font-weight: 750;
+  gap: 7px;
+}
+
+.brand {
+  align-items: center;
+  display: flex;
+  gap: 12px;
+}
+
+.brand-mark {
+  align-items: center;
+  background: #0c6b5a;
+  border-radius: 8px;
+  color: white;
+  display: grid;
+  height: 42px;
+  justify-items: center;
+  width: 42px;
+}
+
+.brand strong,
+.brand span {
+  display: block;
+}
+
+.brand strong {
+  font-size: 1.08rem;
+}
+
+.brand span {
+  color: currentColor;
+  font-size: 0.78rem;
+  opacity: 0.74;
+}
+
+.app-shell {
+  display: grid;
+  grid-template-columns: 250px minmax(0, 1fr);
+  min-height: 100vh;
+}
+
+.sidebar {
+  background: #101c27;
+  color: white;
+  display: flex;
+  flex-direction: column;
+  gap: 28px;
+  padding: 24px;
+}
+
+.sidebar nav {
+  display: grid;
+  gap: 8px;
+}
+
+.sidebar nav span {
+  align-items: center;
+  border-radius: 7px;
+  color: #b7c6ce;
+  display: flex;
+  gap: 10px;
+  padding: 11px 12px;
+}
+
+.sidebar nav .active {
+  background: #183342;
+  color: white;
+}
+
+.ghost,
+.secondary {
+  background: #e8eff1;
+  color: #15212d;
+}
+
+.ghost {
+  margin-top: auto;
+}
+
+.secondary:hover,
+.ghost:hover {
+  background: #d9e4e8;
+}
+
+.main-view {
+  padding: 28px;
+}
+
+.topbar {
+  align-items: center;
+  display: flex;
+  gap: 16px;
+  justify-content: space-between;
+  margin-bottom: 22px;
+}
+
+.topbar p,
+.panel-title p {
+  color: #0c6b5a;
+  font-size: 0.78rem;
+  font-weight: 850;
+  letter-spacing: 0;
+  margin: 0 0 4px;
+  text-transform: uppercase;
+}
+
+.topbar h1,
+.panel-title h2 {
+  margin: 0;
+}
+
+.dashboard-grid {
+  display: grid;
+  gap: 18px;
+  grid-template-columns: minmax(280px, 0.85fr) minmax(420px, 1.25fr);
+}
+
+.panel {
+  background: #fff;
+  border: 1px solid #dce5e9;
+  border-radius: 8px;
+  box-shadow: 0 10px 28px rgba(24, 42, 54, 0.07);
+  padding: 20px;
+}
+
+.panel-title {
+  align-items: start;
+  display: flex;
+  justify-content: space-between;
+  margin-bottom: 16px;
+}
+
+.repair-list {
+  display: grid;
+  gap: 10px;
+}
+
+.repair-card {
+  background: #f8fafb;
+  border: 1px solid #dce5e9;
+  color: #15212d;
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  justify-content: start;
+  min-height: auto;
+  padding: 13px;
+  text-align: left;
+}
+
+.repair-card.selected {
+  background: #eef7f4;
+  border-color: #8fc5b8;
+}
+
+.repair-card div {
+  min-width: 0;
+}
+
+.repair-card strong,
+.repair-card span {
+  display: block;
+}
+
+.repair-card span {
+  color: #657680;
+  font-size: 0.82rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.status-badge {
+  border-radius: 999px;
+  font-size: 0.74rem;
+  font-weight: 850;
+  padding: 6px 8px;
+  white-space: nowrap;
+}
+
+.status-badge.neutral {
+  background: #edf2f4;
+  color: #455661;
+}
+
+.status-badge.warning {
+  background: #fff4d6;
+  color: #855b00;
+}
+
+.status-badge.info {
+  background: #e0f0ff;
+  color: #145a8d;
+}
+
+.status-badge.danger {
+  background: #ffe4df;
+  color: #9f2d1e;
+}
+
+.status-badge.success {
+  background: #e0f7eb;
+  color: #11693e;
+}
+
+.status-badge.done {
+  background: #e8eff1;
+  color: #33434d;
+}
+
+.status-badge.muted {
+  background: #eee;
+  color: #666;
+}
+
+.detail-grid,
+.metrics {
+  display: grid;
+  gap: 10px;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  margin-bottom: 14px;
+}
+
+.detail-grid span,
+.metrics span {
+  background: #f7fafb;
+  border: 1px solid #e1e9ed;
+  border-radius: 7px;
+  color: #657680;
+  display: grid;
+  font-size: 0.78rem;
+  gap: 5px;
+  padding: 10px;
+}
+
+.detail-grid strong,
+.metrics strong {
+  color: #15212d;
+  font-size: 1rem;
+}
+
+.diagnosis {
+  color: #50606b;
+  line-height: 1.5;
+}
+
+.status-actions {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin: 16px 0;
+}
+
+.file-button {
+  align-items: center;
+  background: #e8eff1;
+  border-radius: 7px;
+  color: #15212d;
+  cursor: pointer;
+  display: inline-flex;
+  min-height: 42px;
+  padding: 0 13px;
+}
+
+.file-button input {
+  display: none;
+}
+
+.timeline {
+  color: #50606b;
+  margin: 0 0 16px;
+  padding-left: 19px;
+}
+
+.attachments {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.attachments a {
+  background: #eef7f4;
+  border-radius: 6px;
+  color: #0c6b5a;
+  font-weight: 750;
+  padding: 8px 10px;
+  text-decoration: none;
+}
+
+.chat-panel,
+.reports-panel,
+.create-panel {
+  grid-column: span 1;
+}
+
+.messages {
+  background: #f7fafb;
+  border: 1px solid #e1e9ed;
+  border-radius: 8px;
+  display: grid;
+  gap: 8px;
+  height: 250px;
+  margin-bottom: 12px;
+  overflow: auto;
+  padding: 12px;
+}
+
+.messages article {
+  background: white;
+  border: 1px solid #e1e9ed;
+  border-radius: 8px;
+  max-width: 82%;
+  padding: 10px;
+}
+
+.messages article.own {
+  background: #e7f5ef;
+  justify-self: end;
+}
+
+.messages p {
+  margin: 4px 0 0;
+}
+
+.chat-input {
+  display: grid;
+  gap: 10px;
+  grid-template-columns: minmax(0, 1fr) auto;
+}
+
+.connection {
+  background: #edf2f4;
+  border-radius: 999px;
+  color: #455661;
+  font-size: 0.78rem;
+  font-weight: 800;
+  padding: 7px 10px;
+}
+
+.bars {
+  display: grid;
+  gap: 8px;
+}
+
+.bars p {
+  align-items: center;
+  background: #f7fafb;
+  border-radius: 7px;
+  display: flex;
+  justify-content: space-between;
+  margin: 0;
+  padding: 10px 12px;
+}
+
+.repair-form {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.repair-form label:nth-child(7),
+.repair-form button,
+.form-message {
+  grid-column: 1 / -1;
+}
+
+.alert,
+.hint,
+.form-message {
+  background: #fff7e6;
+  border: 1px solid #ffe0a3;
+  border-radius: 7px;
+  color: #805200;
+  line-height: 1.45;
+  padding: 10px 12px;
+}
+
+@media (max-width: 1180px) {
+  .dashboard-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 820px) {
+  .login-page,
+  .app-shell {
+    grid-template-columns: 1fr;
+  }
+
+  .sidebar {
+    min-height: auto;
+  }
+
+  .login-hero {
+    min-height: 60vh;
+    padding: 32px;
+  }
+
+  .detail-grid,
+  .metrics,
+  .repair-form {
+    grid-template-columns: 1fr;
+  }
+
+  .repair-card {
+    grid-template-columns: auto minmax(0, 1fr);
+  }
+
+  .repair-card .status-badge {
+    grid-column: 1 / -1;
+    justify-self: start;
+  }
+}

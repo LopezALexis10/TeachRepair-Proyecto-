@@ -1,0 +1,428 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Transform: AWS::Serverless-2016-10-31
+Description: TechRepair - proyecto final serverless con Cognito, Lambda, DynamoDB, S3, SNS y WebSocket
+
+Globals:
+  Function:
+    Runtime: python3.12
+    Timeout: 15
+    MemorySize: 256
+    Environment:
+      Variables:
+        REPARACIONES_TABLE: !Ref ReparacionesTable
+        MENSAJES_TABLE: !Ref MensajesTable
+        CONEXIONES_TABLE: !Ref ConexionesUsuariosTable
+        HISTORIAL_TABLE: !Ref HistorialEstadosTable
+        ADJUNTOS_TABLE: !Ref AdjuntosTable
+        ADJUNTOS_BUCKET: !Ref AdjuntosBucket
+        NOTIFICACIONES_TOPIC_ARN: !Ref NotificacionesTopic
+        ALLOWED_ORIGIN: "*"
+
+Resources:
+  TechRepairUserPool:
+    Type: AWS::Cognito::UserPool
+    Properties:
+      UserPoolName: techrepair-users
+      AutoVerifiedAttributes:
+        - email
+      UsernameAttributes:
+        - email
+      Schema:
+        - Name: email
+          Required: true
+          Mutable: true
+        - Name: name
+          Required: true
+          Mutable: true
+      Policies:
+        PasswordPolicy:
+          MinimumLength: 8
+          RequireLowercase: true
+          RequireNumbers: true
+          RequireSymbols: false
+          RequireUppercase: true
+
+  TechRepairUserPoolClient:
+    Type: AWS::Cognito::UserPoolClient
+    Properties:
+      ClientName: techrepair-web-client
+      UserPoolId: !Ref TechRepairUserPool
+      GenerateSecret: false
+      ExplicitAuthFlows:
+        - ALLOW_USER_PASSWORD_AUTH
+        - ALLOW_REFRESH_TOKEN_AUTH
+      PreventUserExistenceErrors: ENABLED
+
+  ClientesGroup:
+    Type: AWS::Cognito::UserPoolGroup
+    Properties:
+      GroupName: CLIENTE
+      UserPoolId: !Ref TechRepairUserPool
+
+  TecnicosGroup:
+    Type: AWS::Cognito::UserPoolGroup
+    Properties:
+      GroupName: TECNICO
+      UserPoolId: !Ref TechRepairUserPool
+
+  TechRepairHttpApi:
+    Type: AWS::Serverless::HttpApi
+    Properties:
+      CorsConfiguration:
+        AllowOrigins:
+          - "*"
+        AllowMethods:
+          - GET
+          - POST
+          - PATCH
+          - OPTIONS
+        AllowHeaders:
+          - Authorization
+          - Content-Type
+      Auth:
+        DefaultAuthorizer: CognitoJwtAuthorizer
+        Authorizers:
+          CognitoJwtAuthorizer:
+            IdentitySource: "$request.header.Authorization"
+            JwtConfiguration:
+              issuer: !Sub "https://cognito-idp.${AWS::Region}.amazonaws.com/${TechRepairUserPool}"
+              audience:
+                - !Ref TechRepairUserPoolClient
+
+  ReparacionesTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: TechRepair-Reparaciones
+      BillingMode: PAY_PER_REQUEST
+      AttributeDefinitions:
+        - AttributeName: reparacionId
+          AttributeType: S
+        - AttributeName: clienteId
+          AttributeType: S
+      KeySchema:
+        - AttributeName: reparacionId
+          KeyType: HASH
+      GlobalSecondaryIndexes:
+        - IndexName: clienteId-index
+          KeySchema:
+            - AttributeName: clienteId
+              KeyType: HASH
+          Projection:
+            ProjectionType: ALL
+
+  MensajesTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: TechRepair-Mensajes
+      BillingMode: PAY_PER_REQUEST
+      AttributeDefinitions:
+        - AttributeName: reparacionId
+          AttributeType: S
+        - AttributeName: createdAt
+          AttributeType: S
+      KeySchema:
+        - AttributeName: reparacionId
+          KeyType: HASH
+        - AttributeName: createdAt
+          KeyType: RANGE
+
+  ConexionesUsuariosTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: TechRepair-ConexionesUsuarios
+      BillingMode: PAY_PER_REQUEST
+      AttributeDefinitions:
+        - AttributeName: connectionId
+          AttributeType: S
+        - AttributeName: reparacionId
+          AttributeType: S
+      KeySchema:
+        - AttributeName: connectionId
+          KeyType: HASH
+      GlobalSecondaryIndexes:
+        - IndexName: reparacionId-index
+          KeySchema:
+            - AttributeName: reparacionId
+              KeyType: HASH
+          Projection:
+            ProjectionType: ALL
+
+  HistorialEstadosTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: TechRepair-HistorialEstados
+      BillingMode: PAY_PER_REQUEST
+      AttributeDefinitions:
+        - AttributeName: reparacionId
+          AttributeType: S
+        - AttributeName: fechaCambio
+          AttributeType: S
+      KeySchema:
+        - AttributeName: reparacionId
+          KeyType: HASH
+        - AttributeName: fechaCambio
+          KeyType: RANGE
+
+  AdjuntosTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: TechRepair-Adjuntos
+      BillingMode: PAY_PER_REQUEST
+      AttributeDefinitions:
+        - AttributeName: reparacionId
+          AttributeType: S
+        - AttributeName: archivoId
+          AttributeType: S
+      KeySchema:
+        - AttributeName: reparacionId
+          KeyType: HASH
+        - AttributeName: archivoId
+          KeyType: RANGE
+
+  AdjuntosBucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      CorsConfiguration:
+        CorsRules:
+          - AllowedHeaders:
+              - "*"
+            AllowedMethods:
+              - GET
+              - PUT
+            AllowedOrigins:
+              - "*"
+            MaxAge: 3000
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: true
+        BlockPublicPolicy: true
+        IgnorePublicAcls: true
+        RestrictPublicBuckets: true
+
+  NotificacionesTopic:
+    Type: AWS::SNS::Topic
+    Properties:
+      TopicName: techrepair-notificaciones
+
+  RestApiFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: src/rest_api/
+      Handler: app.handler
+      Policies:
+        - DynamoDBCrudPolicy:
+            TableName: !Ref ReparacionesTable
+        - DynamoDBCrudPolicy:
+            TableName: !Ref MensajesTable
+        - DynamoDBCrudPolicy:
+            TableName: !Ref HistorialEstadosTable
+        - DynamoDBCrudPolicy:
+            TableName: !Ref AdjuntosTable
+        - S3CrudPolicy:
+            BucketName: !Ref AdjuntosBucket
+        - SNSPublishMessagePolicy:
+            TopicName: techrepair-notificaciones
+      Events:
+        CreateRepair:
+          Type: HttpApi
+          Properties:
+            ApiId: !Ref TechRepairHttpApi
+            Path: /reparaciones
+            Method: POST
+        ListRepairs:
+          Type: HttpApi
+          Properties:
+            ApiId: !Ref TechRepairHttpApi
+            Path: /reparaciones
+            Method: GET
+        GetRepair:
+          Type: HttpApi
+          Properties:
+            ApiId: !Ref TechRepairHttpApi
+            Path: /reparaciones/{id}
+            Method: GET
+        ChangeStatus:
+          Type: HttpApi
+          Properties:
+            ApiId: !Ref TechRepairHttpApi
+            Path: /reparaciones/{id}/estado
+            Method: PATCH
+        ClientRepairs:
+          Type: HttpApi
+          Properties:
+            ApiId: !Ref TechRepairHttpApi
+            Path: /clientes/{clienteId}/reparaciones
+            Method: GET
+        CreateAttachment:
+          Type: HttpApi
+          Properties:
+            ApiId: !Ref TechRepairHttpApi
+            Path: /reparaciones/{id}/adjuntos
+            Method: POST
+        ListAttachments:
+          Type: HttpApi
+          Properties:
+            ApiId: !Ref TechRepairHttpApi
+            Path: /reparaciones/{id}/adjuntos
+            Method: GET
+        ListMessages:
+          Type: HttpApi
+          Properties:
+            ApiId: !Ref TechRepairHttpApi
+            Path: /reparaciones/{id}/mensajes
+            Method: GET
+        SummaryReport:
+          Type: HttpApi
+          Properties:
+            ApiId: !Ref TechRepairHttpApi
+            Path: /reportes/resumen
+            Method: GET
+        StatusReport:
+          Type: HttpApi
+          Properties:
+            ApiId: !Ref TechRepairHttpApi
+            Path: /reportes/estados
+            Method: GET
+        DeviceReport:
+          Type: HttpApi
+          Properties:
+            ApiId: !Ref TechRepairHttpApi
+            Path: /reportes/tipos-equipo
+            Method: GET
+
+  WebSocketConnectFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: src/websocket_connect/
+      Handler: app.handler
+      Policies:
+        - DynamoDBCrudPolicy:
+            TableName: !Ref ConexionesUsuariosTable
+
+  WebSocketDisconnectFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: src/websocket_disconnect/
+      Handler: app.handler
+      Policies:
+        - DynamoDBCrudPolicy:
+            TableName: !Ref ConexionesUsuariosTable
+
+  WebSocketMessageFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: src/websocket_message/
+      Handler: app.handler
+      Policies:
+        - DynamoDBCrudPolicy:
+            TableName: !Ref MensajesTable
+        - DynamoDBCrudPolicy:
+            TableName: !Ref ConexionesUsuariosTable
+        - Statement:
+            Effect: Allow
+            Action:
+              - execute-api:ManageConnections
+            Resource: !Sub "arn:aws:execute-api:${AWS::Region}:${AWS::AccountId}:*/*"
+
+  TechRepairWebSocketApi:
+    Type: AWS::ApiGatewayV2::Api
+    Properties:
+      Name: techrepair-websocket-api
+      ProtocolType: WEBSOCKET
+      RouteSelectionExpression: "$request.body.action"
+
+  ConnectIntegration:
+    Type: AWS::ApiGatewayV2::Integration
+    Properties:
+      ApiId: !Ref TechRepairWebSocketApi
+      IntegrationType: AWS_PROXY
+      IntegrationUri: !Sub "arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${WebSocketConnectFunction.Arn}/invocations"
+
+  DisconnectIntegration:
+    Type: AWS::ApiGatewayV2::Integration
+    Properties:
+      ApiId: !Ref TechRepairWebSocketApi
+      IntegrationType: AWS_PROXY
+      IntegrationUri: !Sub "arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${WebSocketDisconnectFunction.Arn}/invocations"
+
+  MessageIntegration:
+    Type: AWS::ApiGatewayV2::Integration
+    Properties:
+      ApiId: !Ref TechRepairWebSocketApi
+      IntegrationType: AWS_PROXY
+      IntegrationUri: !Sub "arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${WebSocketMessageFunction.Arn}/invocations"
+
+  ConnectRoute:
+    Type: AWS::ApiGatewayV2::Route
+    Properties:
+      ApiId: !Ref TechRepairWebSocketApi
+      RouteKey: $connect
+      Target: !Sub "integrations/${ConnectIntegration}"
+
+  DisconnectRoute:
+    Type: AWS::ApiGatewayV2::Route
+    Properties:
+      ApiId: !Ref TechRepairWebSocketApi
+      RouteKey: $disconnect
+      Target: !Sub "integrations/${DisconnectIntegration}"
+
+  JoinRepairChatRoute:
+    Type: AWS::ApiGatewayV2::Route
+    Properties:
+      ApiId: !Ref TechRepairWebSocketApi
+      RouteKey: joinRepairChat
+      Target: !Sub "integrations/${MessageIntegration}"
+
+  SendMessageRoute:
+    Type: AWS::ApiGatewayV2::Route
+    Properties:
+      ApiId: !Ref TechRepairWebSocketApi
+      RouteKey: sendMessage
+      Target: !Sub "integrations/${MessageIntegration}"
+
+  WebSocketStage:
+    Type: AWS::ApiGatewayV2::Stage
+    Properties:
+      ApiId: !Ref TechRepairWebSocketApi
+      StageName: prod
+      AutoDeploy: true
+
+  ConnectPermission:
+    Type: AWS::Lambda::Permission
+    Properties:
+      Action: lambda:InvokeFunction
+      FunctionName: !Ref WebSocketConnectFunction
+      Principal: apigateway.amazonaws.com
+
+  DisconnectPermission:
+    Type: AWS::Lambda::Permission
+    Properties:
+      Action: lambda:InvokeFunction
+      FunctionName: !Ref WebSocketDisconnectFunction
+      Principal: apigateway.amazonaws.com
+
+  MessagePermission:
+    Type: AWS::Lambda::Permission
+    Properties:
+      Action: lambda:InvokeFunction
+      FunctionName: !Ref WebSocketMessageFunction
+      Principal: apigateway.amazonaws.com
+
+Outputs:
+  HttpApiUrl:
+    Description: URL base del API HTTP protegido con Cognito
+    Value: !Sub "https://${TechRepairHttpApi}.execute-api.${AWS::Region}.amazonaws.com"
+  WebSocketUrl:
+    Description: URL del API WebSocket para chat en tiempo real
+    Value: !Sub "wss://${TechRepairWebSocketApi}.execute-api.${AWS::Region}.amazonaws.com/prod"
+  UserPoolId:
+    Description: ID del User Pool de Cognito
+    Value: !Ref TechRepairUserPool
+  UserPoolClientId:
+    Description: Client ID para el frontend
+    Value: !Ref TechRepairUserPoolClient
+  AdjuntosBucketName:
+    Description: Bucket privado para evidencias
+    Value: !Ref AdjuntosBucket
+  NotificacionesTopicArn:
+    Description: Topic SNS para notificaciones de estado
+    Value: !Ref NotificacionesTopic
