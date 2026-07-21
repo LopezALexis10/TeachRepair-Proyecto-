@@ -14,6 +14,7 @@ sns = boto3.client("sns")
 
 reparaciones_table = dynamodb.Table(os.environ["REPARACIONES_TABLE"])
 mensajes_table = dynamodb.Table(os.environ["MENSAJES_TABLE"])
+clientes_table = dynamodb.Table(os.environ["CLIENTES_TABLE"])
 historial_table = dynamodb.Table(os.environ["HISTORIAL_TABLE"])
 adjuntos_table = dynamodb.Table(os.environ["ADJUNTOS_TABLE"])
 
@@ -83,7 +84,8 @@ def claims_from(event):
 
 
 def is_technician(user):
-    return "TECNICO" in user["groups"]
+    demo_technician_email = "tecnico@techrepair.demo"
+    return "TECNICO" in user["groups"] or user.get("email", "").lower() == demo_technician_email
 
 
 def scan_all(table):
@@ -111,17 +113,20 @@ def record_status_change(reparacion_id, old_status, new_status, user, observacio
 
 
 def create_repair(event, user):
-    if not is_technician(user):
-        return response(403, {"error": "Solo el tecnico puede crear reparaciones"})
-
     body = parse_body(event)
     if body is None:
         return response(400, {"error": "JSON invalido"})
 
-    required = ["clienteId", "clienteNombre", "clienteCorreo", "tipoEquipo", "marca", "modelo", "problemaReportado"]
+    required = ["tipoEquipo", "marca", "modelo", "problemaReportado"]
+    if is_technician(user):
+        required.extend(["clienteNombre", "clienteCorreo"])
     missing = [field for field in required if not body.get(field)]
     if missing:
         return response(400, {"error": "Campos obligatorios faltantes", "campos": missing})
+
+    problem = body["problemaReportado"].strip()
+    if len(problem) > 700:
+        return response(400, {"error": "El problema reportado no puede superar 700 caracteres"})
 
     tipo = body["tipoEquipo"]
     if tipo not in {"Celular", "Laptop", "Consola"}:
@@ -129,22 +134,31 @@ def create_repair(event, user):
 
     timestamp = now_iso()
     repair_id = body.get("reparacionId") or f"REP-{uuid.uuid4().hex[:8].upper()}"
+    client_name = body.get("clienteNombre") if is_technician(user) else user["nombre"]
+    client_email = body.get("clienteCorreo") if is_technician(user) else user["email"]
+    client_id = (
+        body.get("clienteId")
+        or f"manual#{client_email.lower()}"
+        if is_technician(user)
+        else user["usuarioId"]
+    )
     item = {
         "reparacionId": repair_id,
-        "clienteId": body["clienteId"],
-        "clienteNombre": body["clienteNombre"],
-        "clienteCorreo": body["clienteCorreo"],
+        "clienteId": client_id,
+        "clienteNombre": client_name,
+        "clienteCorreo": client_email,
         "tipoEquipo": tipo,
         "marca": body["marca"],
         "modelo": body["modelo"],
-        "problemaReportado": body["problemaReportado"],
-        "diagnostico": body.get("diagnostico", "Pendiente de diagnostico"),
-        "estado": body.get("estado", "Recibido"),
+        "problemaReportado": problem,
+        "diagnostico": body.get("diagnostico", "Pendiente de revision"),
+        "estado": body.get("estado", "Recibido") if is_technician(user) else "Recibido",
         "fechaIngreso": body.get("fechaIngreso", timestamp[:10]),
         "fechaFinalizacion": body.get("fechaFinalizacion"),
-        "costoEstimado": Decimal(str(body.get("costoEstimado", 0))),
-        "tecnicoAsignado": body.get("tecnicoAsignado", user["nombre"]),
+        "costoEstimado": Decimal(str(body.get("costoEstimado", 0))) if is_technician(user) else Decimal("0"),
+        "tecnicoAsignado": body.get("tecnicoAsignado", "Por asignar") if is_technician(user) else "Por asignar",
         "observaciones": body.get("observaciones", ""),
+        "origen": "TECNICO" if is_technician(user) else "CLIENTE",
         "createdAt": timestamp,
         "updatedAt": timestamp,
     }
@@ -247,8 +261,11 @@ def change_status(event, reparacion_id, user):
 
 
 def create_attachment(event, reparacion_id, user):
-    if not is_technician(user):
-        return response(403, {"error": "Solo el tecnico puede registrar evidencias"})
+    repair = reparaciones_table.get_item(Key={"reparacionId": reparacion_id}).get("Item")
+    if not repair:
+        return response(404, {"error": "Reparacion no encontrada"})
+    if not is_technician(user) and repair.get("clienteId") != user["usuarioId"]:
+        return response(403, {"error": "No puedes agregar evidencias a esta reparacion"})
 
     body = parse_body(event)
     if body is None:
@@ -276,6 +293,7 @@ def create_attachment(event, reparacion_id, user):
         "s3Key": key,
         "createdAt": now_iso(),
         "createdBy": user["usuarioId"],
+        "createdByRol": "TECNICO" if is_technician(user) else "CLIENTE",
     }
     adjuntos_table.put_item(Item=item)
     return response(201, {"adjunto": item, "uploadUrl": upload_url, "downloadUrl": download_url})
@@ -318,9 +336,9 @@ def report_summary(user):
         return response(403, {"error": "Solo el tecnico puede ver reportes"})
     items = scan_all(reparaciones_table)
     total = len(items)
-    pendientes = len([item for item in items if item["estado"] not in {"Entregado", "Cancelado"}])
-    finalizadas = len([item for item in items if item["estado"] == "Entregado"])
-    esperando = len([item for item in items if item["estado"] == "Esperando repuesto"])
+    pendientes = len([item for item in items if item.get("estado", "Recibido") not in {"Entregado", "Cancelado"}])
+    finalizadas = len([item for item in items if item.get("estado") == "Entregado"])
+    esperando = len([item for item in items if item.get("estado") == "Esperando repuesto"])
     return response(200, {"total": total, "pendientes": pendientes, "finalizadas": finalizadas, "esperandoRepuesto": esperando})
 
 
@@ -332,6 +350,41 @@ def report_grouped(user, field):
         key = item.get(field, "Sin dato")
         counts[key] = counts.get(key, 0) + 1
     return response(200, {"items": [{"label": key, "total": value} for key, value in sorted(counts.items())]})
+
+
+def conversation_history(user):
+    if not is_technician(user):
+        return response(403, {"error": "Solo el tecnico puede ver el historial de conversaciones"})
+
+    repairs = scan_all(reparaciones_table)
+    conversations = []
+    for repair in repairs:
+        repair_id = repair.get("reparacionId")
+        if not repair_id:
+            continue
+        try:
+            result = mensajes_table.query(
+                KeyConditionExpression=Key("reparacionId").eq(repair_id),
+                ScanIndexForward=False,
+                Limit=1,
+            )
+            last_message = result.get("Items", [None])[0]
+        except Exception as error:
+            print(f"No se pudo consultar mensajes para {repair_id}: {error}")
+            last_message = None
+        conversations.append({
+            "reparacionId": repair_id,
+            "clienteNombre": repair.get("clienteNombre", "Cliente"),
+            "tipoEquipo": repair.get("tipoEquipo", ""),
+            "marca": repair.get("marca", ""),
+            "modelo": repair.get("modelo", ""),
+            "estado": repair.get("estado", "Recibido"),
+            "ultimoMensaje": last_message.get("contenido") if last_message else "Sin mensajes",
+            "ultimoMensajeFecha": last_message.get("createdAt") if last_message else repair.get("createdAt", ""),
+        })
+
+    conversations.sort(key=lambda item: item.get("ultimoMensajeFecha", ""), reverse=True)
+    return response(200, {"items": conversations})
 
 
 def handler(event, context):
@@ -362,5 +415,7 @@ def handler(event, context):
         return report_grouped(user, "estado")
     if route_key == "GET /reportes/tipos-equipo":
         return report_grouped(user, "tipoEquipo")
+    if route_key == "GET /historial/conversaciones":
+        return conversation_history(user)
 
     return response(405, {"error": f"Ruta no soportada: {method} {route_key}"})

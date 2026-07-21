@@ -50,6 +50,50 @@ export async function signIn(email, password) {
   return session;
 }
 
+async function cognitoRequest(target, body) {
+  const endpoint = `https://cognito-idp.${awsConfig.region}.amazonaws.com/`;
+  const response = await fetch(endpoint, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/x-amz-json-1.1",
+      "X-Amz-Target": `AWSCognitoIdentityProviderService.${target}`,
+    },
+    body: JSON.stringify(body),
+  });
+  const data = await response.json();
+  if (!response.ok) {
+    throw new Error(data.message || data.__type || "Operacion de Cognito fallida");
+  }
+  return data;
+}
+
+export async function signUp(nombre, email, password) {
+  return cognitoRequest("SignUp", {
+    ClientId: awsConfig.userPoolClientId,
+    Username: email,
+    Password: password,
+    UserAttributes: [
+      { Name: "email", Value: email },
+      { Name: "name", Value: nombre },
+    ],
+  });
+}
+
+export async function confirmSignUp(email, code) {
+  return cognitoRequest("ConfirmSignUp", {
+    ClientId: awsConfig.userPoolClientId,
+    Username: email,
+    ConfirmationCode: code,
+  });
+}
+
+export async function resendConfirmationCode(email) {
+  return cognitoRequest("ResendConfirmationCode", {
+    ClientId: awsConfig.userPoolClientId,
+    Username: email,
+  });
+}
+
 export function getStoredSession() {
   const raw = localStorage.getItem("techrepairSession");
   return raw ? JSON.parse(raw) : null;

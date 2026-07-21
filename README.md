@@ -162,7 +162,7 @@ Esto actualiza `frontend/src/config.js`.
 ```bash
 cd frontend
 npm install
-npm run dev
+npm.cmd run dev
 ```
 
 Abre la URL que Vite muestre, normalmente:

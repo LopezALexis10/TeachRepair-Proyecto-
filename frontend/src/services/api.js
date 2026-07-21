@@ -13,7 +13,13 @@ export async function apiRequest(path, options, session) {
     ...options,
     headers: authHeaders(session, options?.headers),
   });
-  const data = await response.json();
+  const text = await response.text();
+  let data = {};
+  try {
+    data = text ? JSON.parse(text) : {};
+  } catch {
+    data = { error: text || `HTTP ${response.status}` };
+  }
   if (!response.ok) {
     throw new Error(data.error || `HTTP ${response.status}`);
   }
@@ -33,4 +39,5 @@ export const api = {
   summary: (session) => apiRequest("/reportes/resumen", { method: "GET" }, session),
   reportStatus: (session) => apiRequest("/reportes/estados", { method: "GET" }, session),
   reportDeviceTypes: (session) => apiRequest("/reportes/tipos-equipo", { method: "GET" }, session),
+  conversationHistory: (session) => apiRequest("/historial/conversaciones", { method: "GET" }, session),
 };

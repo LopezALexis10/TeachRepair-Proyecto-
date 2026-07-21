@@ -1,3 +1,5 @@
+import React from "react";
+
 const statusClass = {
   Recibido: "neutral",
   "En diagnóstico": "warning",
